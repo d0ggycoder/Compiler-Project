@@ -15,6 +15,7 @@ typedef enum {
     TERMINATOR,
     KEYWORD,
     OPERATOR,
+    GROUPING
 } TokenType;
 
 typedef struct{

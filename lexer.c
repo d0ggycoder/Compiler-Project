@@ -27,8 +27,25 @@ bool isIdentifierLegal(char c){
     return isAlphaNum(c) || c=='_';
 }
 
+
+bool isAssignableOperator(char c){
+    return c=='+' || c=='-' || c=='/' || c=='*' || c=='%' || c=='!' || c=='&' || c=='|' || c=='^' || c=='~';
+}
+
 bool isOperator(char c){
-    return c=='=' || c=='+' || c=='-' || c=='/' || c=='*'; 
+    return isAssignableOperator(c) || c=='=' || c=='>' || c=='<' || c=='?' || c==':' || c=='.';
+}
+
+bool isDoubleOperator(char a, char b){
+    return (b=='=' && (isAssignableOperator(a) || a=='>' || a=='<' || a=='=')) || (a==b && (a=='+' || a=='-' || a=='>' || a=='<' || a=='&' || a=='|')); 
+}
+
+bool isTripleOperator(char a, char b, char c){
+    return (a=='>' && b=='>' && c=='=') || (a=='<' && b=='<' && c=='=');
+}
+
+bool isGrouping(char c){
+    return c=='[' || c==']' || c=='{' || c=='}' || c=='(' || c==')';
 }
 
 char fpeek(FILE* file){
@@ -139,21 +156,24 @@ int main(int argc, char** argv){
             if(isNum(fpeek(fptr))){
                 vector_append(tokens,parseNum(fptr,buffer,&col,&bufferi));
             } else {
-                Token t = {OPERATOR, "+"};
-                vector_append(tokens, &t);
+                goto _parse_op;
             }
             col++;
         } else if(c=='-'){
             if(isNum(fpeek(fptr))){
                 vector_append(tokens,parseNum(fptr,buffer,&col,&bufferi));
             } else {
-                Token t = {OPERATOR, "-"};
-                vector_append(tokens, &t);                
+                goto _parse_op;           
             }
             
         } else if(c=='"'){
-            // Could be string
-            col++;
+            while((buffer[bufferi++]=fgetc(fptr)) != '"') col++;
+            buffer[bufferi] = '\0';
+
+            char* tokenStr = (char*) malloc(sizeof(char)*bufferi);
+            strcpy(tokenStr, buffer);
+            vector_append(tokens, token_make(STRING_LIT, tokenStr));
+            col+=bufferi;
         } else if(c=='\n'){
             row++;
             col=1;
@@ -162,7 +182,32 @@ int main(int argc, char** argv){
             vector_append(tokens, &t);
             col++;
         } else if(isOperator(c)){
-            col++;
+            _parse_op:
+            char c2 = fgetc(fptr);
+            char c3 = fgetc(fptr);
+
+
+            if(isTripleOperator(c,c2,c3)){
+                buffer[bufferi++] = c2;
+                buffer[bufferi++] = c3;
+            } else if(isDoubleOperator(c,c2)){
+                buffer[bufferi++] = c2;
+                ungetc(c3,fptr);
+            } else {
+                ungetc(c3,fptr);
+                ungetc(c2,fptr);
+            }
+            buffer[bufferi] = '\0';
+            char* tokenStr = (char*) malloc(sizeof(char)*bufferi);
+            strcpy(tokenStr, buffer);
+            vector_append(tokens, token_make(OPERATOR, tokenStr));
+            col+=bufferi;
+        } else if(isGrouping(c)){
+            buffer[bufferi] = '\0';
+            char* tokenStr = (char*) malloc(sizeof(char)*bufferi);
+            strcpy(tokenStr, buffer);
+            vector_append(tokens, token_make(GROUPING, tokenStr));
+            col+=bufferi;
         } else {
             col++;
         }

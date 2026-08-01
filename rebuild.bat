@@ -21,8 +21,8 @@ for %%i in (*) do (
         if errorlevel 1 (
             set "rebuild=yes"
         )
-        echo !rebuild!
         if "!rebuild!" == "yes" (
+            echo "Rebuilding file %%i"
             set "changed=yes"
             copy /Y "%%i" "build_cache/%%i"
             gcc -c %%i -o "build_cache/%%~ni.o"

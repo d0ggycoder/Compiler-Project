@@ -10,7 +10,8 @@ const char* tokenTypeStrings[] = {
     "TYPE_NAME",
     "TERMINATOR",
     "KEYWORD",
-    "OPERATOR"
+    "OPERATOR",
+    "GROUPING"
 };
 
 void token_print(Token* token){
