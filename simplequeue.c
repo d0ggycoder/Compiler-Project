@@ -7,7 +7,7 @@ struct Queue{
     size_t i;
 };
 
-Queue* queue_make(Vector* vec){
+Queue* queue_new(Vector* vec){
     Queue* queue = (Queue*) malloc(sizeof(Queue));
     queue->storage = vec;
     queue->i=0;

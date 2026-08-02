@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "simplevector.h"
+#include "simplearenaallocator.h"
+#include "simplequeue.h"
 #include "lexer.h"
 #include "tokens.h"
 #include "ast.h"
@@ -55,6 +57,15 @@ int x = if(1==2) {3};
 //     }
 
 // }
+
+int scmp(void* a, void* b){
+    return !strcmp(*(char**) a, (char*) b);
+}
+
+AstStatementNode* makeAssignmentNode(Queue* tokenQueue){
+    return NULL;
+}
+
 int main(int argc, char** argv){
     const char* basicTypes[] = {
         "int",
@@ -65,10 +76,14 @@ int main(int argc, char** argv){
     };
     Vector* typeRegistry = vector_from(sizeof(char*),5,basicTypes);
     FILE* fptr = fopen(argv[1],"r");
-    Queue* tokens = queue_make(lexer_lexFile(fptr));
-    
+
+    Queue* tokens = queue_new(lexer_lexFile(fptr));
+    Allocator* astNodeArena = allocator_new(128);
+
     Token* curToken;
     while((curToken = (Token*)queue_consume(tokens))->type!= FILE_END){
         token_print(curToken);
     }
+
+    return 0;
 }

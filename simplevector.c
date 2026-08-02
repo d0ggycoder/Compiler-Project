@@ -52,6 +52,20 @@ void vector_append(Vector* vec, void* v){
     vec->length+=vec->itemSize;
 }
 
+size_t vector_find(Vector* vec, void* v){
+    for(size_t i=0;i<vector_size(vec);i++){
+        if(memcmp(vector_get(vec,i),v,vec->itemSize)) return i;
+    }
+    return -1;
+}
+
+size_t vector_find_cmp(Vector* vec, void* v, int cmp(void* a, void* b)){
+    for(size_t i=0;i<vector_size(vec);i++){
+        if(cmp(vector_get(vec,i),v)) return i;
+    }
+    return -1;
+}
+
 size_t vector_size(Vector* vec){
     return vec->length/vec->itemSize;
 }

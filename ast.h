@@ -80,4 +80,19 @@ struct AstStatementNode{
     };
 };
 
+typedef struct AstNode AstNode;
+
+typedef enum {
+    ast_statement_node,
+    ast_value_node
+} AstNodeKind;
+
+struct AstNode{
+    AstNodeKind kind;
+    union {
+        AstStatementNode statement;
+        AstValueNode value;
+    };
+};
+
 #endif

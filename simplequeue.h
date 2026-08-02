@@ -3,7 +3,7 @@
 #include "simplevector.h"
 typedef struct Queue Queue;
 
-Queue* queue_make(Vector* storage);
+Queue* queue_new(Vector* storage);
 void* queue_peek(Queue* queue);
 void* queue_consume(Queue* queue);
 
