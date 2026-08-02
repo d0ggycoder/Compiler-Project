@@ -6,11 +6,6 @@
 
 #define bool unsigned char
 
-typedef struct{
-    char** fileInputs;
-    char* outputFile;
-} CompileOptions;
-
 bool isNum(char c){
     return c>='0' && c<='9';
 }
@@ -74,13 +69,9 @@ Token* parseNum(FILE* fptr, char* buffer, int* col, int* bufferi){
     return token_make(INT_LIT, tokenStr);
 }
 
-int main(int argc, char** argv){
-    FILE* fptr;
+Vector* lexer_lexFile(FILE* fptr){
     char buffer[256] = {'\0'};
     int bufferi = 0;
-
-    fptr = fopen(argv[1],"r");
-    if(fptr==NULL) return -1;
 
     const char* keywords[] = {
         "class",
@@ -89,21 +80,12 @@ int main(int argc, char** argv){
         "return",
     };
     const int keywordsLen = 4;
-    const char* basicTypes[] = {
-        "int",
-        "float",
-        "string",
-        "char",
-        "bool"
-    };
-    Vector* typeRegistry = vector_from(sizeof(char*),5,basicTypes);
 
     Vector* tokens = vector_new(sizeof(Token));
 
     int row = 1;
     int col = 1;
     char c;
-    CompilerState state = COMPILER_NORMAL;
     while((c=fgetc(fptr)) != EOF){
         buffer[0] = c;
         bufferi=1;
@@ -121,35 +103,11 @@ int main(int argc, char** argv){
             for(int i=0;i<keywordsLen;i++){
                 if(strcmp(keywords[i],buffer) == 0){
                     vector_append(tokens, token_make(KEYWORD, tokenStr));
-
-                    if(state != COMPILER_NORMAL){
-                        printf("Error: improper usage of keyword %s at Row: %d, Column: %d\n", buffer, row, col-bufferi+1);
-                        return -1;
-                    }
-                    if(i<3){ // Type declarations
-                        state = COMPILER_TYPEDECL;
-                    }
                     goto _loop_end;
                 }
             }
-            for(int i=0;i<vector_size(typeRegistry);i++){
-                if(strcmp(*(char**)vector_get(typeRegistry,i), buffer) == 0){
-                    vector_append(tokens, token_make(TYPE_NAME, tokenStr));
-
-                    if(state != COMPILER_NORMAL){
-                        printf("Error: improper usage of type %s at Row: %d, Column: %d\n", buffer, row, col-bufferi+1);
-                        return -1;
-                    }
-                    goto _loop_end;
-                }
-            }
-            if(state == COMPILER_TYPEDECL){
-                vector_append(typeRegistry, &tokenStr);
-                vector_append(tokens, token_make(TYPE_NAME, tokenStr));
-                state = COMPILER_NORMAL;
-            } else if(state==COMPILER_NORMAL){
-                vector_append(tokens, token_make(IDENTIFIER, tokenStr));
-            }
+            vector_append(tokens, token_make(IDENTIFIER, tokenStr));
+            
         } else if(isNum(c)){
             vector_append(tokens, parseNum(fptr, buffer, &col, &bufferi));
         } else if(c=='+'){
@@ -212,13 +170,8 @@ int main(int argc, char** argv){
             col++;
         }
         _loop_end:
-        // printToken((Token*)vector_get(tokens,vector_size(tokens)-1));
     }
-    for(int i=0;i<vector_size(tokens);i++){
-        token_print((Token*)vector_get(tokens,i));
-    }
+    vector_append(tokens, token_make(FILE_END,NULL));
 
-    // vector_free_custom(tokens,token_free);
-    // vector_free_custom(typeRegistry,free);
-    return 0;
+    return tokens;
 }

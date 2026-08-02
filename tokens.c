@@ -3,6 +3,7 @@
 #include "tokens.h"
 
 const char* tokenTypeStrings[] = {
+    "EOF",
     "STRING_LIT",
     "INT_LIT",
     "DOUBLE_LIT",
@@ -11,10 +12,14 @@ const char* tokenTypeStrings[] = {
     "TERMINATOR",
     "KEYWORD",
     "OPERATOR",
-    "GROUPING"
+    "GROUPING",
 };
 
 void token_print(Token* token){
+    if(token->type==FILE_END){
+        printf("END OF FILE");
+        return;
+    }
     printf("%s: \"%s\"\n",tokenTypeStrings[token->type],token->contents);
 }
 

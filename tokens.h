@@ -7,6 +7,7 @@ typedef enum {
 } CompilerState;
 
 typedef enum {
+    FILE_END,
     STRING_LIT,
     INT_LIT,
     DOUBLE_LIT,
@@ -15,12 +16,15 @@ typedef enum {
     TERMINATOR,
     KEYWORD,
     OPERATOR,
-    GROUPING
+    GROUPING,
 } TokenType;
 
 typedef struct{
     TokenType type;
     char* contents;
+    // For error message purposes
+    int row; 
+    int col; 
 } Token;
 
 void token_print(Token* token);

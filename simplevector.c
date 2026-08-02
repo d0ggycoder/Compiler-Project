@@ -27,6 +27,15 @@ Vector* vector_from(size_t itemSize, size_t dataLength, void* startingData){
     return vec;
 }
 
+Vector* vector_from_capacity(size_t itemSize, size_t dataLength){
+    Vector* vec = (Vector*) malloc(sizeof(Vector));
+    vec->length = dataLength*itemSize;
+    vec->capacity = dataLength*itemSize;
+    vec->itemSize = itemSize;
+    vec->data = malloc(vec->capacity);
+    return vec;
+}
+
 void* vector_get(Vector* vec, int i){
     return vec->data + i*vec->itemSize;
 }
@@ -45,6 +54,10 @@ void vector_append(Vector* vec, void* v){
 
 size_t vector_size(Vector* vec){
     return vec->length/vec->itemSize;
+}
+
+size_t vector_item_size(Vector* vec){
+    return vec->itemSize;
 }
 
 void vector_free(Vector* vec){

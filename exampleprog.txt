@@ -1,6 +1,1 @@
-class a;
-a b = "hehe";
-b ++= "haha";
-int main(){
-    return -10.55;
-}
+int a = 1;
