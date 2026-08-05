@@ -8,6 +8,7 @@
 #include "ast.h"
 
 #define bool unsigned char
+#define PRIMITIVE_COUNT 5
 /*
 Let's play as the parser for a second:
 
@@ -57,31 +58,79 @@ int x = if(1==2) {3};
 //     }
 
 // }
+Allocator* nodeAllocator;
 
 int scmp(void* a, void* b){
     return !strcmp(*(char**) a, (char*) b);
 }
 
-AstStatementNode* makeAssignmentNode(Queue* tokenQueue){
-    return NULL;
+bool isType(){
+    return 1;
 }
 
+int getPrecedence(char c, bool isLHS){
+    
+}
+
+AstValueNode* parseExpression(Queue* tokenQueue, int min_bp){
+    Token* t = (Token*)queue_consume(tokenQueue);
+
+}
+
+// AstValueNode* parseExpressionNud(Token* token){
+//     if(token->type == INT_LIT){
+//         AstValueNode* node = (AstValueNode*) allocator_alloc(nodeAllocator, sizeof(AstValueNode));
+//     }
+// }
+
+// /*
+// Decl -> TYPE ID ('=' EXPR)?
+// */
+// AstStatementNode* makeDeclarationNode(Queue* tokenQueue){
+//     AstStatementNode* anode = (AstStatementNode*)allocator_alloc(nodeAllocator,sizeof(AstStatementNode));
+//     anode->kind = ast_declaration;
+//     Token* curToken = (Token*)queue_ahead(tokenQueue,0);
+//     if(curToken->type == IDENTIFIER && isType(curToken->contents)){
+//         anode->variable_declaration.type = curToken->contents;
+//     } else return NULL;
+//     curToken = (Token*)queue_ahead(tokenQueue,1);
+//     if(curToken->type == IDENTIFIER){
+//         anode->variable_declaration.id = curToken->contents;
+//     } else return NULL;
+//     curToken = (Token*)queue_ahead(tokenQueue,2);
+
+//     if(curToken->type != OPERATOR || curToken->contents[0] != '=') {
+//         if(curToken->type != TERMINATOR) return NULL;
+//         queue_consume(tokenQueue);
+//         queue_consume(tokenQueue);
+//         queue_consume(tokenQueue);
+//         anode->variable_declaration.initValue=NULL;
+//         return anode;
+//     }
+//     queue_consume(tokenQueue);
+//     queue_consume(tokenQueue);
+//     queue_consume(tokenQueue);
+    
+//     anode->variable_declaration.initValue = parseExpression(tokenQueue, 0);
+
+//     return NULL;
+// }
+
 int main(int argc, char** argv){
-    const char* basicTypes[] = {
+    const char* basicTypes[PRIMITIVE_COUNT] = {
         "int",
         "float",
         "string",
         "char",
         "bool"
     };
-    Vector* typeRegistry = vector_from(sizeof(char*),5,basicTypes);
-    FILE* fptr = fopen(argv[1],"r");
+    Vector* typeRegistry = vector_from(sizeof(char*),PRIMITIVE_COUNT,basicTypes);
 
-    Queue* tokens = queue_new(lexer_lexFile(fptr));
-    Allocator* astNodeArena = allocator_new(128);
-
+    Queue* tokens = queue_new(lexer_lexFile(argv[1]));
+    nodeAllocator = allocator_new(128);
+    
     Token* curToken;
-    while((curToken = (Token*)queue_consume(tokens))->type!= FILE_END){
+    while((curToken = (Token*)queue_consume(tokens))->type!= TOK_FILE_END){
         token_print(curToken);
     }
 

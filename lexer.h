@@ -4,6 +4,6 @@
 #include "tokens.h"
 #include "simplequeue.h"
 
-Vector* lexer_lexFile(FILE* file);
+Vector* lexer_lexFile(const char* file);
 
 #endif
