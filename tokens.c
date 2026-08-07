@@ -48,3 +48,11 @@ Token* token_new(TokenType type){
     token->type = type;
     return token;
 }
+
+unsigned char token_isLit(TokenType t){
+    return t >= TOK_STRING_LIT && t <= TOK_DOUBLE_LIT;
+}
+
+unsigned char token_isOp(TokenType t){
+    return t >= TOK_EQUAL && t <= TOK_COLON;
+}

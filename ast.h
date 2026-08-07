@@ -16,6 +16,7 @@ typedef enum {
     ast_integer_lit,
     ast_string_lit,
     ast_double_lit,
+    ast_char_lit,
     ast_variable,
     ast_binary_op,
     ast_unary_op,
@@ -35,6 +36,9 @@ struct AstValueNode{
         struct {
             double value;
         } double_lit;
+        struct {
+            char value;
+        } char_lit;
         struct {
             char* id;
         } variable;

@@ -1,6 +1,7 @@
 #include "simplequeue.h"
 #include "simplevector.h"
 #include <stdlib.h>
+#include <string.h>
 
 struct Queue{
     Vector* storage;
@@ -25,4 +26,12 @@ void* queue_ahead(Queue* queue, size_t n){
 void* queue_consume(Queue* queue){
     if(queue->i >= vector_size(queue->storage)) return NULL;
     return vector_get(queue->storage,(queue->i)++);
+}
+
+unsigned char queue_match(Queue* queue, void* v){
+    if(memcmp(vector_get(queue->storage,queue->i),v,vector_item_size(queue->storage)) != 0){
+        return 0;
+    }
+    (queue->i)++;
+    return 1;
 }

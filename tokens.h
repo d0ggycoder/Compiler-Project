@@ -99,5 +99,7 @@ void token_free(void* token);
 Token* token_make(TokenType type, char* contents);
 Token* token_new(TokenType type);
 
+unsigned char token_isOp(TokenType t);
+unsigned char token_isLit(TokenType t);
 
 #endif

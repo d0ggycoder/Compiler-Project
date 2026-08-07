@@ -1,3 +1,1 @@
-int a = 1;
-a+=2;
-string b = "hiya there folks" abc;
+g=3*2+1 

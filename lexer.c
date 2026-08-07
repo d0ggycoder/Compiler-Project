@@ -310,7 +310,6 @@ Vector* lexer_lexFile(char* fstring){
                     int tstartc = l->col;
                     bufferi--;
                     while(peek(l) != EOF && peek(l) != '\"'){
-                        printf("%c\n",peek(l));
                         buffer[bufferi++] = consume(l);
                     }
                     if(!match(l,'\"')){
