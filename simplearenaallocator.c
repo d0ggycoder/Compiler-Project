@@ -5,7 +5,7 @@
 #define ALLOCATOR_MIN 4096
 #define ALLOCATOR_MAX 65536
 #define RESCALE_FUNC(n) 2*n
-#define CLAMP(n,a,b) n >= a ? (n <= b ? n : b) : a 
+#define CLAMP(n,a,b) n >= b ? (n <= a ? n : a) : b 
 #define RESCALE(n) CLAMP(RESCALE_FUNC(n),ALLOCATOR_MIN,ALLOCATOR_MAX)
 
 typedef struct Chunk Chunk;
@@ -53,16 +53,14 @@ void* allocator_alloc(Allocator* allocator, size_t amount){
         //cchunk->next may not exist
         if(cchunk->next == NULL){
             cchunk->next = makeChunk(cchunk,amount);
-            cchunk = cchunk->next;
         } else if(amount > cchunk->next->capacity){
             Chunk* nchunk = cchunk->next;
             free(nchunk->memory);
             nchunk->capacity = amount;
             nchunk->memory = malloc(amount);
             nchunk->occupied = 0;
-        } else {
-            cchunk = cchunk->next;
         }
+        allocator->current = allocator->current->next;
     }
     void* mem = allocator->current->memory + allocator->current->occupied;
     allocator->current->occupied+=amount;

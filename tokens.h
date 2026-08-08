@@ -10,7 +10,6 @@ typedef enum {
     TOK_FILE_END,
     TOK_IDENTIFIER,
     TOK_TERMINATOR,
-    TOK_KEYWORD,
 
     // Literals
     TOK_STRING_LIT,
@@ -73,12 +72,21 @@ typedef enum {
     TOK_COLON,
     
     // Groupings
+    TOK_COMMA,
     TOK_OPEN_PARENS,
     TOK_CLOSE_PARENS,
     TOK_OPEN_BRACKET,
     TOK_CLOSE_BRACKET,
     TOK_OPEN_BRACES,
-    TOK_CLOSE_BRACES
+    TOK_CLOSE_BRACES,
+
+    // Keywords
+    TOK_RETURN,
+    TOK_IF,
+    TOK_ELSE,
+    TOK_BREAK,
+    TOK_WHILE,
+    TOK_FOR
 } TokenType;
 
 typedef struct{

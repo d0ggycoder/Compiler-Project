@@ -20,8 +20,10 @@ typedef enum {
     ast_variable,
     ast_binary_op,
     ast_unary_op,
+    ast_cond_expr,
     ast_block_expr,
-    ast_assignment
+    ast_assignment,
+    ast_function_call
 } AstValueKind;
 
 struct AstValueNode{
@@ -61,9 +63,13 @@ struct AstValueNode{
             AstValueNode* otherwise;
         } cond_expr;
         struct {
-            char* id;
+            AstValueNode* id;
             AstValueNode* value;
         } assignment;
+        struct {
+            AstValueNode* callee;
+            Vector* parameters;
+        } function_call;
     };
 };
 

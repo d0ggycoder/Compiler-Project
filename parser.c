@@ -9,57 +9,11 @@
 
 #define bool unsigned char
 #define PRIMITIVE_COUNT 5
-/*
-Let's play as the parser for a second:
 
-class Thing {
-    int a;
-    int b;
-    
-    Thing(int a, int b){
-        this.a=a;
-        this.b=b;
-    }
-}
-
-int main(){
-    Thing a = Thing();
-}
-main();
-
-Example:
-int x = if(1==2) {3};
-
-
-*/
-
-// Expr* buildExpr(Vector* tokenStream, int* i){
-
-// }
-
-// FunctionDeclaration* buildFunctionDeclaration(Vector* tokenStream, int* i){
-//     FunctionDeclaration* func = (FunctionDeclaration*) malloc(sizeof(FunctionDeclaration));
-//     if(((Token*)vector_get(tokenStream,*i))->type==TYPE_NAME) {
-        
-//     }
-// }
-
-// IfExpr* buildIfExpr(Vector* tokenStream, int* i){
-//     IfExpr* ifExpr = (IfExpr*) malloc(sizeof(IfExpr));
-//     *i++;
-//     Token* currentToken = (Token*)vector_get(tokenStream,*i);
-//     if(currentToken->type!=GROUPING || currentToken->contents[0] != '('){
-//         printf("Invalid syntax! Expected \'(\' after \'if\' on line %d column %d\n");
-//         return NULL;
-//     }
-//     *i++;
-//     if((ifExpr->conditions = buildExpr(tokenStream,*i))==NULL){
-//         return NULL;
-//     }
-
-// }
+// Global Variables
 Allocator* nodeAllocator;
 
+// Utility functions
 int scmp(void* a, void* b){
     return !strcmp(*(char**) a, (char*) b);
 }
@@ -75,10 +29,22 @@ bool isType(){
 }
 
 void panic_f(){
-    exit(EXIT_FAILURE);
+    exit(2);
 }
 
-AstValueNode* makeNode(AstValueKind k){
+bool matchToken(Queue* q, TokenType t){
+    if(((Token*)queue_peek(q))->type != t){
+        return 0;
+    }
+    queue_consume(q);
+    return 1;
+}
+
+bool isEnd(Queue* q){
+    return ((Token*)queue_peek(q))->type == TOK_FILE_END;
+}
+
+AstValueNode* newNode(AstValueKind k){
     AstValueNode* n = allocator_alloc(nodeAllocator,sizeof(AstValueNode));
     n->kind = k;
 }
@@ -92,10 +58,16 @@ typedef AstValueNode* (*InfixFn)(Queue*, AstValueNode*);
 typedef enum {
     PREC_NONE,
     PREC_ASSIGNMENT,
+    PREC_TERN_R,
+    PREC_TERN_L,
     PREC_TERM_L,
     PREC_TERM_R,
     PREC_FACTOR_L,
-    PREC_FACTOR_R
+    PREC_FACTOR_R,
+    PREC_PREFIX,
+    PREC_POSTFIX,
+    PREC_CALL,
+    PREC_PRIMARY
 } BindingPower;
 
 typedef struct {
@@ -122,26 +94,32 @@ AstValueNode* makeLitNode(Queue* q){
     AstValueNode* lit;
     switch(t->type){
         case TOK_INT_LIT:
-            lit = makeNode(ast_integer_lit);
+            lit = newNode(ast_integer_lit);
             lit->integer_lit.value = t->intVal;
             break;
         case TOK_DOUBLE_LIT:
-            lit = makeNode(ast_double_lit);
+            lit = newNode(ast_double_lit);
             lit->double_lit.value = t->doubleVal;
             break;
         case TOK_STRING_LIT:
-            lit = makeNode(ast_string_lit);
+            lit = newNode(ast_string_lit);
             lit->string_lit.value = cpystr(t->contents);
         case TOK_CHAR_LIT:
-            lit = makeNode(ast_char_lit);
+            lit = newNode(ast_char_lit);
             lit->char_lit.value = t->charVal;
         default:
             return NULL;
     }
 }
 
+AstValueNode* makeIdentifierNode(Queue* q){
+    AstValueNode* node = newNode(ast_variable);
+    node->variable.id = cpystr(((Token*)queue_consume(q))->contents);
+    return node;
+}
+
 AstValueNode* newBinaryNode(OperatorKind op, AstValueNode* lhs, AstValueNode* rhs){
-    AstValueNode* node = makeNode(ast_binary_op);
+    AstValueNode* node = newNode(ast_binary_op);
     node->binary_op.opkind = op;
     node->binary_op.left = lhs;
     node->binary_op.right = rhs;
@@ -156,24 +134,70 @@ AstValueNode* makeBinaryNode(Queue* q, AstValueNode* lhs){
     return newBinaryNode(tokToInfixOp(op->type), lhs, rhs);
 }
 
+AstValueNode* makeParensExpr(Queue* q){
+    queue_consume(q); // Consume open parens
+    AstValueNode* expr = parseExpression(q,PREC_NONE);
+    matchToken(q,TOK_CLOSE_PARENS);
+    return expr;
+}
+
+Vector* parseParams(Queue* q){
+    queue_consume(q); // Consume open parens
+    Vector* vec = vector_new(sizeof(AstValueNode));
+    if(matchToken(q,TOK_CLOSE_PARENS)) return vec;
+    while(!isEnd(q)){
+        vector_append(vec,parseExpression(q,0.0));
+        if(matchToken(q,TOK_CLOSE_PARENS)) break;
+        if(!matchToken(q,TOK_COMMA)) panic_f(); 
+    }
+    return vec;
+}
+
+AstValueNode* makeFuncCall(Queue* q, AstValueNode* callee){
+    AstValueNode* call = newNode(ast_function_call);
+    call->function_call.callee = callee;
+    call->function_call.parameters = parseParams(q);
+    return call;
+}
+
+AstValueNode* makeTernaryExpr(Queue* q, AstValueNode* lhs){
+    AstValueNode* tern = newNode(ast_cond_expr);
+    tern->cond_expr.condition = lhs;
+    matchToken(q,TOK_QUESTION); // Consume ?
+    tern->cond_expr.then = parseExpression(q,PREC_TERN_R);
+    matchToken(q,TOK_COLON);
+    tern->cond_expr.otherwise = parseExpression(q,PREC_TERN_R);
+    return tern;
+}
+
 ParseRule parseRules[] = {
+    [TOK_IDENTIFIER] = {makeIdentifierNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_INT_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_DOUBLE_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_CHAR_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_STRING_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
 
+    [TOK_QUESTION] = {NULL, makeTernaryExpr, PREC_TERN_L, PREC_TERN_R},
+
     [TOK_PLUS] = {NULL, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
     [TOK_MINUS] = {NULL, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
 
     [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
-    [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R}
+    [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
+
+    [TOK_OPEN_PARENS] = {makeParensExpr, makeFuncCall, PREC_PRIMARY, PREC_CALL},
+    [TOK_CLOSE_PARENS] = {NULL, NULL, PREC_NONE, PREC_NONE},
+    [TOK_COMMA] = {NULL, NULL, PREC_NONE, PREC_NONE},
+    [TOK_TERMINATOR] = {NULL, NULL, PREC_NONE, PREC_NONE},
 };
 
 
 AstValueNode* parseExpression(Queue* q, int minbp){
     Token* t = (Token*)queue_peek(q);
     PrefixFn prefix = parseRules[t->type].prefix;
-    if(prefix==NULL) panic_f();
+    if(prefix==NULL) {
+        panic_f();
+    }
 
     AstValueNode* left = prefix(q);
 
@@ -186,44 +210,81 @@ AstValueNode* parseExpression(Queue* q, int minbp){
     return left;
 }
 
-// AstValueNode* parseExpressionNud(Token* token){
-//     if(token->type == INT_LIT){
-//         AstValueNode* node = (AstValueNode*) allocator_alloc(nodeAllocator, sizeof(AstValueNode));
-//     }
-// }
+// Ast prints
+void printSpaces(int indent){
+    while(indent--){
+        printf("  ");
+    }
+}
 
-// /*
-// Decl -> TYPE ID ('=' EXPR)?
-// */
-// AstStatementNode* makeDeclarationNode(Queue* tokenQueue){
-//     AstStatementNode* anode = (AstStatementNode*)allocator_alloc(nodeAllocator,sizeof(AstStatementNode));
-//     anode->kind = ast_declaration;
-//     Token* curToken = (Token*)queue_ahead(tokenQueue,0);
-//     if(curToken->type == IDENTIFIER && isType(curToken->contents)){
-//         anode->variable_declaration.type = curToken->contents;
-//     } else return NULL;
-//     curToken = (Token*)queue_ahead(tokenQueue,1);
-//     if(curToken->type == IDENTIFIER){
-//         anode->variable_declaration.id = curToken->contents;
-//     } else return NULL;
-//     curToken = (Token*)queue_ahead(tokenQueue,2);
+const char* opStr[]={
+    [BINARY_ADDITION]="+",
+    [BINARY_SUBTRACTION]="-",
+    [BINARY_MULTIPLICATION]="*",
+    [BINARY_DIVISION]="/",
+    [ASSIGNMENT]="="
+};
 
-//     if(curToken->type != OPERATOR || curToken->contents[0] != '=') {
-//         if(curToken->type != TERMINATOR) return NULL;
-//         queue_consume(tokenQueue);
-//         queue_consume(tokenQueue);
-//         queue_consume(tokenQueue);
-//         anode->variable_declaration.initValue=NULL;
-//         return anode;
-//     }
-//     queue_consume(tokenQueue);
-//     queue_consume(tokenQueue);
-//     queue_consume(tokenQueue);
-    
-//     anode->variable_declaration.initValue = parseExpression(tokenQueue, 0);
-
-//     return NULL;
-// }
+void printAst(AstValueNode* ast, int depth){
+    switch(ast->kind){
+        case ast_integer_lit:
+            printSpaces(depth);
+            printf("Int lit: %d\n",ast->integer_lit.value);
+            break;
+        case ast_double_lit:
+            printSpaces(depth);
+            printf("Double lit: %f\n",ast->double_lit.value);
+            break;
+        case ast_char_lit:
+            printSpaces(depth);
+            printf("Char lit: %c\n",ast->char_lit.value);
+            break;
+        case ast_string_lit:
+            printSpaces(depth);
+            printf("String lit: %s\n",ast->string_lit.value);
+            break;
+        case ast_variable:
+            printSpaces(depth);
+            printf("Variable: %s\n",ast->variable.id);
+            break;
+        case ast_binary_op:
+            printSpaces(depth);
+            printf("Binary Operation\n");
+            printSpaces(depth);
+            printf("| Operand: %s\n",opStr[ast->binary_op.opkind]);
+            printSpaces(depth);
+            printf("| Left: \n");
+            printAst(ast->binary_op.left,depth+1);
+            printSpaces(depth);
+            printf("| Right: \n");
+            printAst(ast->binary_op.right,depth+1);
+            break;
+        case ast_function_call:
+            printSpaces(depth);
+            printf("Function Call\n");
+            printSpaces(depth);
+            printf("| Callee: \n");
+            printAst(ast->function_call.callee,depth+1);
+            printSpaces(depth);
+            printf("| Parameters: \n");
+            for(int i=0;i<vector_size(ast->function_call.parameters);i++){
+                printAst((AstValueNode*)vector_get(ast->function_call.parameters,i),depth+1);
+            }
+            break;
+        case ast_cond_expr:
+            printSpaces(depth);
+            printf("Conditional Expression\n");
+            printSpaces(depth);
+            printf("| Condition: \n");
+            printAst(ast->cond_expr.condition,depth+1);
+            printSpaces(depth);
+            printf("| Then: \n");
+            printAst(ast->cond_expr.then,depth+1);
+            printSpaces(depth);
+            printf("| Else: \n");
+            printAst(ast->cond_expr.otherwise,depth+1);
+    }
+}
 
 int main(int argc, char** argv){
     const char* basicTypes[PRIMITIVE_COUNT] = {
@@ -243,6 +304,7 @@ int main(int argc, char** argv){
     //     token_print(curToken);
     // }
     AstValueNode* expr = parseExpression(tokens,0);
-    
+    printf("Parsing successful! :D\n");
+    printAst(expr,0);
     return 0;
 }

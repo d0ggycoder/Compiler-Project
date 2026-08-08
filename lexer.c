@@ -172,14 +172,6 @@ Vector* lexer_lexFile(char* fstring){
     char buffer[256] = {'\0'};
     int bufferi = 0;
 
-    const char* keywords[] = {
-        "class",
-        "struct",
-        "enum",
-        "return",
-    };
-    const int keywordsLen = 4;
-
     Lexer* l = lexer_new(fstring);
 
     char c;
@@ -198,13 +190,17 @@ Vector* lexer_lexFile(char* fstring){
             char* tokenStr = (char*) malloc(sizeof(char)*bufferi);
             strcpy(tokenStr, buffer);
 
-            for(int i=0;i<keywordsLen;i++){
-                if(strcmp(keywords[i],buffer) == 0){
-                    emit_val(l,TOK_KEYWORD,tokenStr);
-                    goto _loop_end;
-                }
+            if(strcmp(buffer,"return") == 0){
+                emit(l,TOK_RETURN);
+            } else if(strcmp(buffer,"if") == 0){
+                emit(l,TOK_IF);   
+            } else if(strcmp(buffer,"else") == 0){
+                emit(l,TOK_ELSE);  
+            } else if(strcmp(buffer,"while") == 0){
+                emit(l,TOK_WHILE);  
+            } else {
+                emit_val(l,TOK_IDENTIFIER,tokenStr);
             }
-            emit_val(l,TOK_IDENTIFIER,tokenStr);
             
         } else if(isNum(c)){
             while(isNum(peek(l))){
@@ -283,6 +279,9 @@ Vector* lexer_lexFile(char* fstring){
                     break;
                 case '\'':
                     parseChar(l);
+                    break;
+                case ',':
+                    emit(l,TOK_COMMA);
                     break;
                 case '(':
                     emit(l,TOK_OPEN_PARENS);
