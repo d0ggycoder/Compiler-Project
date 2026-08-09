@@ -3,11 +3,18 @@
 #include "simplevector.h"
 
 typedef enum {
+    // Unary operations
+    UNARY_NEGATION,
+    PREFIX_INCREMENT,
+    PREFIX_DEINCREMENT,
+    POSTFIX_INCREMENT,
+    POSTFIX_DEINCREMENT,
+    // Binary operations
     BINARY_ADDITION,
     BINARY_SUBTRACTION,
     BINARY_MULTIPLICATION,
     BINARY_DIVISION,
-    ASSIGNMENT
+    ASSIGNMENT,
 } OperatorKind;
 
 typedef struct AstValueNode AstValueNode;

@@ -10,7 +10,8 @@
 #define bool unsigned char
 #define PRIMITIVE_COUNT 5
 
-// Global Variables
+// Global Variables 
+// TODO: wrap into a parser struct
 Allocator* nodeAllocator;
 
 // Utility functions
@@ -170,6 +171,43 @@ AstValueNode* makeTernaryExpr(Queue* q, AstValueNode* lhs){
     return tern;
 }
 
+AstValueNode* makePrefix(Queue* q){
+    AstValueNode* node = newNode(ast_unary_op);
+    Token* token = (Token*)queue_consume(q);
+    switch(token->type){
+        case TOK_MINUS:
+            node->unary_op.opkind=UNARY_NEGATION;
+            break;
+        case TOK_PLUS_PLUS:
+            node->unary_op.opkind=PREFIX_INCREMENT;
+            break;
+        case TOK_MINUS_MINUS:
+            node->unary_op.opkind=POSTFIX_INCREMENT;
+            break;
+    } 
+    node->unary_op.operand = parseExpression(q,PREC_PREFIX);
+    return node;
+}
+
+AstValueNode* makePostfix(Queue* q, AstValueNode* lhs){
+    AstValueNode* node = newNode(ast_unary_op);
+    Token* token = (Token*)queue_consume(q);
+    switch(token->type){
+        case TOK_PLUS_PLUS:
+            node->unary_op.opkind=POSTFIX_INCREMENT;
+            break;
+        case TOK_MINUS_MINUS:
+            node->unary_op.opkind=POSTFIX_DEINCREMENT;
+            break;
+        default:
+            printf("Unknown postfix operation");
+            panic_f();
+            break;
+    }
+    node->unary_op.operand=lhs;
+    return node;
+}
+
 ParseRule parseRules[] = {
     [TOK_IDENTIFIER] = {makeIdentifierNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_INT_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
@@ -180,10 +218,13 @@ ParseRule parseRules[] = {
     [TOK_QUESTION] = {NULL, makeTernaryExpr, PREC_TERN_L, PREC_TERN_R},
 
     [TOK_PLUS] = {NULL, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
-    [TOK_MINUS] = {NULL, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
+    [TOK_MINUS] = {makePrefix, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
 
     [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
     [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
+
+    [TOK_PLUS_PLUS] = {makePrefix, makePostfix, PREC_PREFIX, PREC_POSTFIX},
+    [TOK_MINUS_MINUS] = {makePrefix, makePostfix, PREC_PREFIX, PREC_POSTFIX},
 
     [TOK_OPEN_PARENS] = {makeParensExpr, makeFuncCall, PREC_PRIMARY, PREC_CALL},
     [TOK_CLOSE_PARENS] = {NULL, NULL, PREC_NONE, PREC_NONE},
@@ -210,6 +251,12 @@ AstValueNode* parseExpression(Queue* q, int minbp){
     return left;
 }
 
+// Statement parsing 
+AstStatementNode* parseStatement(Queue* q){
+
+}
+
+
 // Ast prints
 void printSpaces(int indent){
     while(indent--){
@@ -218,6 +265,11 @@ void printSpaces(int indent){
 }
 
 const char* opStr[]={
+    [UNARY_NEGATION]="-",
+    [PREFIX_DEINCREMENT]="-- (before)",
+    [PREFIX_INCREMENT]="++ (before)",
+    [POSTFIX_DEINCREMENT]="-- (after)",
+    [POSTFIX_INCREMENT] = "++ (after)",
     [BINARY_ADDITION]="+",
     [BINARY_SUBTRACTION]="-",
     [BINARY_MULTIPLICATION]="*",
@@ -247,11 +299,20 @@ void printAst(AstValueNode* ast, int depth){
             printSpaces(depth);
             printf("Variable: %s\n",ast->variable.id);
             break;
+        case ast_unary_op:
+            printSpaces(depth);
+            printf("Unary Operation\n");
+            printSpaces(depth);
+            printf("| Operation: %s\n",opStr[ast->unary_op.opkind]);
+            printSpaces(depth);
+            printf("| Operand: \n");
+            printAst(ast->unary_op.operand,depth+1);
+            break;
         case ast_binary_op:
             printSpaces(depth);
             printf("Binary Operation\n");
             printSpaces(depth);
-            printf("| Operand: %s\n",opStr[ast->binary_op.opkind]);
+            printf("| Operation: %s\n",opStr[ast->binary_op.opkind]);
             printSpaces(depth);
             printf("| Left: \n");
             printAst(ast->binary_op.left,depth+1);
@@ -283,6 +344,7 @@ void printAst(AstValueNode* ast, int depth){
             printSpaces(depth);
             printf("| Else: \n");
             printAst(ast->cond_expr.otherwise,depth+1);
+            break;
     }
 }
 
@@ -294,7 +356,6 @@ int main(int argc, char** argv){
         "char",
         "bool"
     };
-    Vector* typeRegistry = vector_from(sizeof(char*),PRIMITIVE_COUNT,basicTypes);
 
     Queue* tokens = queue_new(lexer_lexFile(argv[1]));
     nodeAllocator = allocator_new(128);
@@ -304,7 +365,6 @@ int main(int argc, char** argv){
     //     token_print(curToken);
     // }
     AstValueNode* expr = parseExpression(tokens,0);
-    printf("Parsing successful! :D\n");
     printAst(expr,0);
     return 0;
 }
