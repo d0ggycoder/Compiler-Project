@@ -31,6 +31,7 @@ typedef enum {
     TOK_LT,
     TOK_AND_AND,
     TOK_PIPE_PIPE,
+    TOK_BANG,
     
     // Simple arithmetic
     TOK_PLUS,
@@ -58,7 +59,6 @@ typedef enum {
     TOK_CARAT_EQUAL,
     TOK_AND_EQUAL,
     TOK_PIPE_EQUAL,
-    TOK_TILDE_EQUAL,
     TOK_PLUS_PLUS,
     TOK_MINUS_MINUS,
 

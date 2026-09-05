@@ -9,11 +9,55 @@ typedef enum {
     PREFIX_DEINCREMENT,
     POSTFIX_INCREMENT,
     POSTFIX_DEINCREMENT,
+
     // Binary operations
     BINARY_ADDITION,
     BINARY_SUBTRACTION,
     BINARY_MULTIPLICATION,
     BINARY_DIVISION,
+    BINARY_MOD,
+
+    // Bitwise Manipulation
+    BITWISE_OR,
+    BITWISE_AND,
+    BITWISE_XOR,
+    BITWISE_NEGATION,
+    BITWISE_RSHIFT,
+    BITWISE_LSHIFT,
+
+    // Access
+    ACCESS_DOT,
+    ACCESS_ARROW,
+    ACCESS_CASCADE,
+    ACCESS_DEREF,
+    ACCESS_ADDRESS,
+
+    // Comparisons
+    COMPARE_GT,
+    COMPARE_LT,
+    COMPARE_EQ,
+    COMPARE_NEQ,
+    COMPARE_GTE,
+    COMPARE_LTE,
+
+    // Logical
+    LOGICAL_OR,
+    LOGICAL_AND,
+    LOGICAL_NOT,
+    
+    // Compound operations
+    COMPOUND_ADDITION,
+    COMPOUND_SUBTRACTION,
+    COMPOUND_MULTIPLICATION,
+    COMPOUND_DIVISION,
+    COMPOUND_MOD,
+    COMPOUND_RSHIFT,
+    COMPOUND_LSHIFT,
+    COMPOUND_OR,
+    COMPOUND_AND,
+    COMPOUND_XOR,
+
+    // Simple assignment
     ASSIGNMENT,
 } OperatorKind;
 

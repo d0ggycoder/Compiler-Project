@@ -250,8 +250,12 @@ Vector* lexer_lexFile(char* fstring){
                 case '|':
                     emit(l, match(l,'|') ? TOK_PIPE_PIPE :
                             match(l,'=') ? TOK_PIPE_EQUAL :
-                            TOK_MINUS);
+                            TOK_PIPE);
                     break;
+                case '!':
+                    emit(l, match(l,'=') ? TOK_BANG_EQUAL : TOK_BANG);
+                case '~':
+                    emit(l, TOK_TILDE);
                 case '^':
                     emit(l, match(l,'=') ? TOK_CARAT_EQUAL : TOK_CARAT);
                     break;

@@ -56,18 +56,52 @@ AstValueNode* parseExpression(Queue* q, int minbp);
 typedef AstValueNode* (*PrefixFn)(Queue*);
 typedef AstValueNode* (*InfixFn)(Queue*, AstValueNode*);
 
+// This uses the C precedence heirarchy
 typedef enum {
     PREC_NONE,
-    PREC_ASSIGNMENT,
+    PREC_ASSIGNMENT_R,
+    PREC_ASSIGNMENT_L,
     PREC_TERN_R,
     PREC_TERN_L,
+    PREC_LOGICAL_OR_L,
+    PREC_LOGICAL_OR_R,
+    PREC_LOGICAL_AND_L,
+    PREC_LOGICAL_AND_R,
+    PREC_BITWISE_OR_L,
+    PREC_BITWISE_OR_R,
+    PREC_BITWISE_XOR_L,
+    PREC_BITWISE_XOR_R,
+    PREC_BITWISE_AND_L,
+    PREC_BITWISE_AND_R,
+    PREC_EQUALITY_L,
+    PREC_EQUALITY_R,
+    PREC_RELATIONAL_L,
+    PREC_RELATIONAL_R,
+    PREC_BITSHIFT_L,
+    PREC_BITSHIFT_R,
     PREC_TERM_L,
     PREC_TERM_R,
     PREC_FACTOR_L,
     PREC_FACTOR_R,
-    PREC_PREFIX,
-    PREC_POSTFIX,
-    PREC_CALL,
+
+    // Precedence 2 grouping (All exclusively prefix r->l, so only one value is provided)
+    _PREC_2,
+    PREC_PREFIX=_PREC_2,
+    PREC_CAST=_PREC_2,
+    PREC_DEREF=_PREC_2,
+    PREC_ADDR=_PREC_2,
+
+    // Precedence 1 grouping
+    _PREC_1_L,
+    _PREC_1_R,
+    PREC_POSTFIX=_PREC_1_L,
+    PREC_CALL=_PREC_1_L,
+    PREC_ACCESS_L=_PREC_1_L,
+    PREC_ACCESS_R=_PREC_1_R,
+    PREC_INDEX_L=_PREC_1_L,
+    PREC_INDEX_R=_PREC_1_R,
+
+    // Precedence 0 grouping
     PREC_PRIMARY
 } BindingPower;
 
@@ -86,6 +120,40 @@ OperatorKind tokToInfixOp(TokenType t){
         case TOK_MINUS: return BINARY_SUBTRACTION;
         case TOK_STAR: return BINARY_MULTIPLICATION;
         case TOK_SLASH: return BINARY_DIVISION;
+        case TOK_MOD: return BINARY_MOD;
+        case TOK_EQUAL: return ASSIGNMENT;
+
+        case TOK_EQUAL_EQUAL: return COMPARE_EQ;
+        case TOK_BANG_EQUAL: return COMPARE_NEQ;
+        case TOK_LT_EQUAL: return COMPARE_LTE;
+        case TOK_GT_EQUAL: return COMPARE_GTE;
+        case TOK_GT: return COMPARE_GT;
+        case TOK_LT: return COMPARE_LT;
+        case TOK_AND_AND: return LOGICAL_AND;
+        case TOK_PIPE_PIPE: return LOGICAL_OR;
+        
+        case TOK_GT_GT: return BITWISE_LSHIFT;
+        case TOK_LT_LT: return BITWISE_RSHIFT;
+        case TOK_CARAT: return BITWISE_XOR;
+        case TOK_AND: return BITWISE_AND;
+        case TOK_PIPE: return BITWISE_OR;
+
+        // Compound assignments
+        case TOK_PLUS_EQUAL: return COMPOUND_ADDITION;
+        case TOK_MINUS_EQUAL: return COMPOUND_SUBTRACTION;
+        case TOK_STAR_EQUAL: return COMPOUND_MULTIPLICATION;
+        case TOK_SLASH_EQUAL: return COMPOUND_DIVISION;
+        case TOK_MOD_EQUAL: return COMPOUND_MOD;
+        case TOK_GT_GT_EQUAL: return COMPOUND_LSHIFT;
+        case TOK_LT_LT_EQUAL: return COMPOUND_RSHIFT;
+        case TOK_CARAT_EQUAL: return COMPOUND_XOR;
+        case TOK_AND_EQUAL: return COMPOUND_AND;
+        case TOK_PIPE_EQUAL: return COMPOUND_OR;
+
+        // Accesses
+        case TOK_DOT: return ACCESS_DOT;
+        case TOK_MINUS_GT: return ACCESS_ARROW;
+        case TOK_DOT_DOT: return ACCESS_CASCADE;
         default: return -1;
     }
 }
@@ -184,6 +252,15 @@ AstValueNode* makePrefix(Queue* q){
         case TOK_MINUS_MINUS:
             node->unary_op.opkind=POSTFIX_INCREMENT;
             break;
+        case TOK_TILDE:
+            node->unary_op.opkind=BITWISE_NEGATION;
+            break;
+        case TOK_AND:
+            node->unary_op.opkind=ACCESS_ADDRESS;
+            break;
+        case TOK_STAR:
+            node->unary_op.opkind=ACCESS_DEREF;
+            break;
     } 
     node->unary_op.operand = parseExpression(q,PREC_PREFIX);
     return node;
@@ -209,22 +286,67 @@ AstValueNode* makePostfix(Queue* q, AstValueNode* lhs){
 }
 
 ParseRule parseRules[] = {
+    // Identifiers/literals
     [TOK_IDENTIFIER] = {makeIdentifierNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_INT_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_DOUBLE_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_CHAR_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
     [TOK_STRING_LIT] = {makeLitNode, NULL, PREC_NONE, PREC_NONE},
 
+    // Equality comparisons
+    [TOK_EQUAL_EQUAL] = {NULL, makeBinaryNode, PREC_EQUALITY_L, PREC_EQUALITY_R},
+    [TOK_BANG_EQUAL] = {NULL, makeBinaryNode, PREC_EQUALITY_L, PREC_EQUALITY_R},
+    [TOK_LT_EQUAL] = {NULL, makeBinaryNode, PREC_RELATIONAL_L, PREC_RELATIONAL_R},
+    [TOK_GT_EQUAL] = {NULL, makeBinaryNode, PREC_RELATIONAL_L, PREC_RELATIONAL_R},
+    [TOK_GT] = {NULL, makeBinaryNode, PREC_RELATIONAL_L, PREC_RELATIONAL_R},
+    [TOK_LT] = {NULL, makeBinaryNode, PREC_RELATIONAL_L, PREC_RELATIONAL_R},
+    [TOK_AND_AND] = {NULL, makeBinaryNode, PREC_RELATIONAL_L, PREC_RELATIONAL_R},
+    [TOK_PIPE_PIPE] = {NULL, makeBinaryNode, PREC_RELATIONAL_L, PREC_RELATIONAL_R},
+
+    // Logical Operators
+    [TOK_PIPE_PIPE] = {NULL, makeBinaryNode, PREC_LOGICAL_OR_L,PREC_LOGICAL_OR_R},
+    [TOK_AND_AND] = {NULL, makeBinaryNode, PREC_LOGICAL_AND_L, PREC_LOGICAL_AND_R},
+
+    // Bitwise Operators
+    [TOK_GT_GT] = {NULL, makeBinaryNode, PREC_BITSHIFT_L, PREC_BITSHIFT_R},
+    [TOK_LT_LT] = {NULL, makeBinaryNode, PREC_BITSHIFT_L, PREC_BITSHIFT_R},
+    [TOK_AND] = {makePrefix, makeBinaryNode, PREC_BITWISE_AND_L, PREC_BITWISE_AND_R},
+    [TOK_PIPE] = {NULL, makeBinaryNode, PREC_BITWISE_OR_L, PREC_BITWISE_OR_R},
+    [TOK_CARAT] = {NULL, makeBinaryNode, PREC_BITWISE_XOR_L, PREC_BITWISE_XOR_R},
+    [TOK_TILDE] = {makePrefix, NULL, PREC_PREFIX, PREC_PREFIX},
+
     [TOK_QUESTION] = {NULL, makeTernaryExpr, PREC_TERN_L, PREC_TERN_R},
 
+    // Simple Arithmetic
     [TOK_PLUS] = {NULL, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
     [TOK_MINUS] = {makePrefix, makeBinaryNode, PREC_TERM_L, PREC_TERM_R},
+    [TOK_STAR] = {makePrefix, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
+    [TOK_SLASH] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
+    [TOK_MOD] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
 
-    [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
-    [TOK_STAR] = {NULL, makeBinaryNode, PREC_FACTOR_L, PREC_FACTOR_R},
-
+    // Increment/deincrement
     [TOK_PLUS_PLUS] = {makePrefix, makePostfix, PREC_PREFIX, PREC_POSTFIX},
     [TOK_MINUS_MINUS] = {makePrefix, makePostfix, PREC_PREFIX, PREC_POSTFIX},
+
+    // Simple and Compound Assignments
+    [TOK_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_PLUS_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_MINUS_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_STAR_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_SLASH_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_MOD_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_GT_GT_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_LT_LT_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_CARAT_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_AND_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_PIPE_EQUAL] = {NULL, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_PLUS_PLUS] = {makePrefix, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+    [TOK_MINUS_MINUS] = {makePrefix, makeBinaryNode, PREC_ASSIGNMENT_L, PREC_ASSIGNMENT_R},
+
+    // Access
+    [TOK_DOT] = {NULL, makeBinaryNode, PREC_ACCESS_L, PREC_ACCESS_R},
+    [TOK_MINUS_GT] = {NULL, makeBinaryNode, PREC_ACCESS_L, PREC_ACCESS_R}, // Pointer member access
+    [TOK_DOT_DOT] = {NULL, makeBinaryNode, PREC_ACCESS_L, PREC_ACCESS_R}, // Cascade operator
 
     [TOK_OPEN_PARENS] = {makeParensExpr, makeFuncCall, PREC_PRIMARY, PREC_CALL},
     [TOK_CLOSE_PARENS] = {NULL, NULL, PREC_NONE, PREC_NONE},
@@ -303,7 +425,11 @@ void printAst(AstValueNode* ast, int depth){
             printSpaces(depth);
             printf("Unary Operation\n");
             printSpaces(depth);
-            printf("| Operation: %s\n",opStr[ast->unary_op.opkind]);
+            if(opStr[ast->unary_op.opkind] == NULL){
+                printf("| Operation: opcode %d\n",ast->unary_op.opkind);
+            } else {
+                printf("| Operation: %s\n",opStr[ast->unary_op.opkind]);
+            }
             printSpaces(depth);
             printf("| Operand: \n");
             printAst(ast->unary_op.operand,depth+1);
@@ -312,7 +438,11 @@ void printAst(AstValueNode* ast, int depth){
             printSpaces(depth);
             printf("Binary Operation\n");
             printSpaces(depth);
-            printf("| Operation: %s\n",opStr[ast->binary_op.opkind]);
+            if(opStr[ast->binary_op.opkind] == NULL){
+                printf("| Operation: opcode %d\n",ast->binary_op.opkind);
+            } else {
+                printf("| Operation: %s\n",opStr[ast->binary_op.opkind]);
+            }
             printSpaces(depth);
             printf("| Left: \n");
             printAst(ast->binary_op.left,depth+1);
