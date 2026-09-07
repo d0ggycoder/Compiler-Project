@@ -7,6 +7,7 @@ Queue* queue_new(Vector* storage);
 void* queue_peek(Queue* queue);
 void* queue_ahead(Queue* queue, size_t n);
 void* queue_consume(Queue* queue);
+void queue_back(Queue* queue, int n);
 unsigned char queue_match(Queue* queue, void* v);
 
 #endif

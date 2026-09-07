@@ -198,6 +198,10 @@ Vector* lexer_lexFile(char* fstring){
                 emit(l,TOK_ELSE);  
             } else if(strcmp(buffer,"while") == 0){
                 emit(l,TOK_WHILE);  
+            } else if(strcmp(buffer,"var") == 0){
+                emit(l,TOK_VAR);
+            } else if(strcmp(buffer,"const") == 0){
+                emit(l,TOK_CONST);
             } else {
                 emit_val(l,TOK_IDENTIFIER,tokenStr);
             }

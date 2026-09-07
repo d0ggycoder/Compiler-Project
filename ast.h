@@ -127,7 +127,9 @@ struct AstValueNode{
 typedef struct AstStatementNode AstStatementNode;
 
 typedef enum {
-    ast_declaration
+    ast_variable_declaration,
+    ast_const_declaration,
+    ast_expression_statment
 } AstStatementKind;
 
 struct AstStatementNode{
@@ -138,6 +140,14 @@ struct AstStatementNode{
             char* id;
             AstValueNode* initValue;
         } variable_declaration;
+        struct {
+            char* type;
+            char* id;
+            AstValueNode* initValue;
+        } const_declaration;
+        struct {
+            AstValueNode* expr;
+        } expression_statement;
     };
 };
 
@@ -151,8 +161,8 @@ typedef enum {
 struct AstNode{
     AstNodeKind kind;
     union {
-        AstStatementNode statement;
-        AstValueNode value;
+        AstStatementNode* statement;
+        AstValueNode* value;
     };
 };
 

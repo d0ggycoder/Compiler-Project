@@ -29,8 +29,37 @@ bool isType(){
     return 1;
 }
 
-void panic_f(){
-    exit(2);
+
+typedef enum {
+    PARSEERROR_ILLEGAL_ARGUMENT_FORMAT,
+    PARSEERROR_ILLEGAL_PREFIX,
+    PARSEERROR_ILLEGAL_DECLARATION_FORMAT,
+    PARSEERROR_UNKNOWN_STATEMENT_FORMAT,
+    PARSEERROR_ILLEGAL_DECLARATION_MISSING_TYPE,
+    PARSEERROR_ILLEGAL_DECLARATION_MISSING_VALUE
+} ParseError;
+void panic_parse(Token* tok, int kind){
+    switch (kind){
+        case PARSEERROR_ILLEGAL_ARGUMENT_FORMAT:
+            printf("Illegal token at Line: %d Col: %d. Expected \',\'\n",tok->row,tok->col);
+            break;
+        case PARSEERROR_ILLEGAL_PREFIX:
+            printf("Illegal placement of operator at Line: %d Col %d\n",tok->row,tok->col);
+            break;
+        case PARSEERROR_ILLEGAL_DECLARATION_FORMAT:
+            printf("Illegal variable declaration idk");
+            break;
+        case PARSEERROR_UNKNOWN_STATEMENT_FORMAT:
+            printf("Unknown statement format at Line: %d Col: %d\n",tok->row,tok->col);
+            break;
+        case PARSEERROR_ILLEGAL_DECLARATION_MISSING_TYPE:
+            printf("Missing type declaration at Line: %d Col: %d\n",tok->row,tok->col);
+            break;
+        case PARSEERROR_ILLEGAL_DECLARATION_MISSING_VALUE:
+            printf("Missing initial value in declaration at Line: %d Col: %d\n",tok->row,tok->col);
+            break;        
+    }
+    exit(1);
 }
 
 bool matchToken(Queue* q, TokenType t){
@@ -217,7 +246,7 @@ Vector* parseParams(Queue* q){
     while(!isEnd(q)){
         vector_append(vec,parseExpression(q,0.0));
         if(matchToken(q,TOK_CLOSE_PARENS)) break;
-        if(!matchToken(q,TOK_COMMA)) panic_f(); 
+        if(!matchToken(q,TOK_COMMA)) panic_parse((Token*)queue_consume(q), 1); 
     }
     return vec;
 }
@@ -275,10 +304,6 @@ AstValueNode* makePostfix(Queue* q, AstValueNode* lhs){
             break;
         case TOK_MINUS_MINUS:
             node->unary_op.opkind=POSTFIX_DEINCREMENT;
-            break;
-        default:
-            printf("Unknown postfix operation");
-            panic_f();
             break;
     }
     node->unary_op.operand=lhs;
@@ -351,7 +376,7 @@ ParseRule parseRules[] = {
     [TOK_OPEN_PARENS] = {makeParensExpr, makeFuncCall, PREC_PRIMARY, PREC_CALL},
     [TOK_CLOSE_PARENS] = {NULL, NULL, PREC_NONE, PREC_NONE},
     [TOK_COMMA] = {NULL, NULL, PREC_NONE, PREC_NONE},
-    [TOK_TERMINATOR] = {NULL, NULL, PREC_NONE, PREC_NONE},
+    [TOK_TERMINATOR] = {NULL, NULL, PREC_NONE, PREC_NONE}, // TODO: add proper token consumption
 };
 
 
@@ -359,23 +384,85 @@ AstValueNode* parseExpression(Queue* q, int minbp){
     Token* t = (Token*)queue_peek(q);
     PrefixFn prefix = parseRules[t->type].prefix;
     if(prefix==NULL) {
-        panic_f();
+        panic_parse(t,PARSEERROR_ILLEGAL_PREFIX);
     }
 
     AstValueNode* left = prefix(q);
 
     while(minbp < parseRules[((Token*)queue_peek(q))->type].lbp){
         Token* token = (Token*)queue_peek(q);
-
         InfixFn infix = parseRules[token->type].infix;
         left = infix(q, left);
     }
     return left;
 }
 
+AstStatementNode* newStatementNode(AstStatementKind k){
+    AstStatementNode* s = (AstStatementNode*)allocator_alloc(nodeAllocator,sizeof(AstStatementNode));
+    s->kind=k;
+    return s;
+}
+
+AstStatementNode* parseDeclaration(Queue* q){
+    AstStatementNode* node = newStatementNode(ast_variable_declaration);
+    node->variable_declaration.type = ((Token*)queue_consume(q))->contents;
+    if(!matchToken(q,TOK_COLON)){
+        panic_parse((Token*)queue_peek(q),PARSEERROR_ILLEGAL_DECLARATION_MISSING_TYPE);
+    }
+    node->variable_declaration.id = ((Token*)queue_consume(q))->contents;
+    if(matchToken(q,TOK_EQUAL)){
+        node->variable_declaration.initValue = parseExpression(q,0);
+    } else {
+        node->variable_declaration.initValue = NULL;
+    }
+    matchToken(q,TOK_TERMINATOR);
+    return node;
+}
+
+AstStatementNode* parseDeclarationConst(Queue* q){
+    AstStatementNode* node = newStatementNode(ast_const_declaration);
+    node->variable_declaration.type = ((Token*)queue_consume(q))->contents;
+    if(!matchToken(q,TOK_COLON)){
+        panic_parse((Token*)queue_peek(q),PARSEERROR_ILLEGAL_DECLARATION_MISSING_TYPE);
+    }
+    node->variable_declaration.id = ((Token*)queue_consume(q))->contents;
+    if(matchToken(q,TOK_EQUAL)){
+        node->variable_declaration.initValue = parseExpression(q,0);
+    } else {
+        panic_parse((Token*)queue_peek(q),PARSEERROR_ILLEGAL_DECLARATION_MISSING_VALUE);
+    }
+    matchToken(q,TOK_TERMINATOR);
+    return node;
+}
+
+AstStatementNode* parseExpressionStatement(Queue* q){
+    AstStatementNode* node = newStatementNode(ast_expression_statment);
+    node->expression_statement.expr=parseExpression(q,0);
+    matchToken(q,TOK_TERMINATOR);
+    return node;
+}
+
 // Statement parsing 
 AstStatementNode* parseStatement(Queue* q){
+    /*
+    Declaration: 
+    |   [declmod] VARNAME ":" TYPE_EXPR ("=" EXPR) ";"
+    
 
+    */
+    if(matchToken(q,TOK_VAR)){
+        return parseDeclaration(q);
+    } else if(matchToken(q,TOK_CONST)){
+        return parseDeclarationConst(q);
+    }
+    panic_parse((Token*)queue_peek(q),PARSEERROR_UNKNOWN_STATEMENT_FORMAT);
+}
+
+AstNode* nodeFromStatement(AstStatementNode* statement){
+    AstNode* node = (AstNode*)allocator_alloc(nodeAllocator,sizeof(AstNode));
+    node->kind=ast_statement_node;
+    node->statement=statement;
+    return node;
 }
 
 
@@ -399,7 +486,7 @@ const char* opStr[]={
     [ASSIGNMENT]="="
 };
 
-void printAst(AstValueNode* ast, int depth){
+void printAstValue(AstValueNode* ast, int depth){
     switch(ast->kind){
         case ast_integer_lit:
             printSpaces(depth);
@@ -432,7 +519,7 @@ void printAst(AstValueNode* ast, int depth){
             }
             printSpaces(depth);
             printf("| Operand: \n");
-            printAst(ast->unary_op.operand,depth+1);
+            printAstValue(ast->unary_op.operand,depth+1);
             break;
         case ast_binary_op:
             printSpaces(depth);
@@ -445,21 +532,21 @@ void printAst(AstValueNode* ast, int depth){
             }
             printSpaces(depth);
             printf("| Left: \n");
-            printAst(ast->binary_op.left,depth+1);
+            printAstValue(ast->binary_op.left,depth+1);
             printSpaces(depth);
             printf("| Right: \n");
-            printAst(ast->binary_op.right,depth+1);
+            printAstValue(ast->binary_op.right,depth+1);
             break;
         case ast_function_call:
             printSpaces(depth);
             printf("Function Call\n");
             printSpaces(depth);
             printf("| Callee: \n");
-            printAst(ast->function_call.callee,depth+1);
+            printAstValue(ast->function_call.callee,depth+1);
             printSpaces(depth);
             printf("| Parameters: \n");
             for(int i=0;i<vector_size(ast->function_call.parameters);i++){
-                printAst((AstValueNode*)vector_get(ast->function_call.parameters,i),depth+1);
+                printAstValue((AstValueNode*)vector_get(ast->function_call.parameters,i),depth+1);
             }
             break;
         case ast_cond_expr:
@@ -467,13 +554,49 @@ void printAst(AstValueNode* ast, int depth){
             printf("Conditional Expression\n");
             printSpaces(depth);
             printf("| Condition: \n");
-            printAst(ast->cond_expr.condition,depth+1);
+            printAstValue(ast->cond_expr.condition,depth+1);
             printSpaces(depth);
             printf("| Then: \n");
-            printAst(ast->cond_expr.then,depth+1);
+            printAstValue(ast->cond_expr.then,depth+1);
             printSpaces(depth);
             printf("| Else: \n");
-            printAst(ast->cond_expr.otherwise,depth+1);
+            printAstValue(ast->cond_expr.otherwise,depth+1);
+            break;
+    }
+}
+
+void printAstStatement(AstStatementNode* ast, int depth){
+    switch(ast->kind){
+        case ast_const_declaration:
+        case ast_variable_declaration:
+            printSpaces(depth);
+            printf("Variable Declaration\n");
+            printSpaces(depth);
+            printf("| Type Name: %s\n",ast->variable_declaration.type);
+            printSpaces(depth);
+            printf("| Variable name: %s\n",ast->variable_declaration.id);
+            if(ast->variable_declaration.initValue!=NULL){
+                printSpaces(depth);
+                printf("| Initial Value: \n");
+                printAstValue(ast->variable_declaration.initValue,depth+1);
+            }
+            break;
+        case ast_expression_statment:
+            printSpaces(depth);
+            printf("Expression Statement\n");
+            printSpaces(depth);
+            printAstValue(ast->expression_statement.expr,depth+1);
+            break;
+    }
+}
+
+void printAstNode(AstNode* ast, int depth){
+    switch(ast->kind){
+        case ast_value_node:
+            printAstValue(ast->value,depth+1);
+            break;
+        case ast_statement_node:
+            printAstStatement(ast->statement,depth+1);
             break;
     }
 }
@@ -490,11 +613,13 @@ int main(int argc, char** argv){
     Queue* tokens = queue_new(lexer_lexFile(argv[1]));
     nodeAllocator = allocator_new(128);
     
+    while(((Token*)queue_peek(tokens))->type!=TOK_FILE_END){
+        AstNode* statement = nodeFromStatement(parseStatement(tokens));
+        printAstNode(statement,0);
+    }
     // Token* curToken;
     // while((curToken = (Token*)queue_consume(tokens))->type!= TOK_FILE_END){
     //     token_print(curToken);
     // }
-    AstValueNode* expr = parseExpression(tokens,0);
-    printAst(expr,0);
     return 0;
 }

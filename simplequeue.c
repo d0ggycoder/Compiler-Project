@@ -28,6 +28,10 @@ void* queue_consume(Queue* queue){
     return vector_get(queue->storage,(queue->i)++);
 }
 
+void queue_back(Queue* queue, int n){
+    queue->i = queue->i>=n?queue->i-n:0;
+}
+
 unsigned char queue_match(Queue* queue, void* v){
     if(memcmp(vector_get(queue->storage,queue->i),v,vector_item_size(queue->storage)) != 0){
         return 0;
